@@ -13,6 +13,16 @@ variable "replayable" {
   default = false
 }
 
+variable "vault_pass" {
+  type    = string
+  default = null
+}
+
+variable "location_files" {
+  type    = string
+  default = null
+}
+
 variable "extra" {
   type = map(object({
     name               = string
@@ -22,5 +32,7 @@ variable "extra" {
     ssh_common_args    = optional(string)
     become_password    = string
     host_key_checking  = optional(bool, false)
+    vault_pass         = optional(string)
+    location_files     = optional(string)
   }))
 }
