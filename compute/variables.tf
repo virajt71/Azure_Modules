@@ -32,7 +32,7 @@ variable "virtual_machines" {
     admin_password                  = optional(string)
     disable_password_authentication = optional(bool, true)
     ssh_public_key                  = optional(string)
-    custom_data                     = optional(string)
+    license_type                    = optional(string)  # "RHEL_BYOS" or "SLES_BYOS" for Azure Hybrid Benefit
 
     os_disk = object({
       caching              = string
@@ -75,8 +75,33 @@ variable "boot_diagnostics_storage_uri" {
   default     = null
 }
 
+variable "enable_auto_shutdown" {
+  description = "Enable auto-shutdown schedule for VMs (cost optimization for non-prod)"
+  type        = bool
+  default     = false
+}
+
+variable "auto_shutdown_time" {
+  description = "Time for auto-shutdown (HH:mm format, e.g., '18:00')"
+  type        = string
+  default     = "18:00"
+}
+
+variable "auto_shutdown_timezone" {
+  description = "Timezone for auto-shutdown (e.g., 'UTC', 'W. Europe Standard Time')"
+  type        = string
+  default     = "UTC"
+}
+
+variable "enable_azure_hybrid_benefit" {
+  description = "Enable Azure Hybrid Benefit for Linux VMs (cost optimization)"
+  type        = bool
+  default     = false
+}
+
 variable "tags" {
   description = "Resource tags"
   type        = map(string)
   default     = {}
 }
+

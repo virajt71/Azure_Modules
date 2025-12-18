@@ -89,9 +89,39 @@ variable "nic_nsg_associations" {
   description = "Map of NIC to NSG associations"
   type = map(object({
     nic_key = string
-    nsg_key = string
+    nsg_key  = string
   }))
   default = {}
+}
+
+variable "enable_default_nsg" {
+  description = "Enable default NSG with deny-all inbound rule and allow-all outbound"
+  type        = bool
+  default     = true
+}
+
+variable "default_nsg_name" {
+  description = "Name for the default NSG if enable_default_nsg is true"
+  type        = string
+  default     = "default"
+}
+
+variable "additional_nsg_rules" {
+  description = "Additional security rules to add to the default NSG"
+  type = list(object({
+    name                       = string
+    priority                   = number
+    direction                  = string
+    access                     = string
+    protocol                   = string
+    source_port_range          = optional(string)
+    destination_port_range     = optional(string)
+    source_address_prefix      = optional(string)
+    destination_address_prefix = optional(string)
+    source_address_prefixes    = optional(list(string))
+    destination_address_prefixes = optional(list(string))
+  }))
+  default = []
 }
 
 variable "tags" {
@@ -99,3 +129,5 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+

@@ -32,23 +32,6 @@ resource "azapi_resource_action" "ssh_public_key_gen" {
   response_export_values = ["publicKey", "privateKey"]
 }
 
-# resource "local_file" "ssh_private_keys" {
-#   for_each = module.compute.ssh_private_keys
-
-#   filename        = pathexpand("~/.ssh/azure_${each.key}_rsa.pub")
-#   content         = each.value
-#   file_permission = "0600"
-# }
-
-# # Save SSH public keys to local files
-# resource "local_file" "ssh_public_keys" {
-#   for_each = module.compute.ssh_public_keys
-
-#   filename        = pathexpand("~/.ssh/azure_${each.key}_public_rsa.pub")
-#   content         = each.value
-#   file_permission = "0644"
-# }
-
 # Linux Virtual Machines
 resource "azurerm_linux_virtual_machine" "this" {
   for_each = var.virtual_machines
@@ -60,7 +43,6 @@ resource "azurerm_linux_virtual_machine" "this" {
   network_interface_ids           = [var.network_interface_ids[each.value.nic_key]]
   admin_username                  = each.value.admin_username
   disable_password_authentication = each.value.disable_password_authentication
-  custom_data                     = each.value.custom_data
 
   # Use generated password if password auth is enabled and no password provided
   admin_password = !each.value.disable_password_authentication ? (
@@ -86,7 +68,7 @@ resource "azurerm_linux_virtual_machine" "this" {
   dynamic "admin_ssh_key" {
     for_each = each.value.disable_password_authentication ? [1] : []
     content {
-      username = each.value.admin_username
+      username   = each.value.admin_username
       public_key = each.value.ssh_public_key != null ? each.value.ssh_public_key : (
         var.generate_ssh_key ? azapi_resource_action.ssh_public_key_gen[each.key].output.publicKey : ""
       )
@@ -101,7 +83,32 @@ resource "azurerm_linux_virtual_machine" "this" {
     }
   }
 
-  tags = var.tags
+  # Azure Hybrid Benefit (cost optimization) - only for Red Hat or SUSE
+  # Set license_type to "RHEL_BYOS" for Red Hat or "SLES_BYOS" for SUSE
+  # For Ubuntu, leave as null
+  license_type = var.enable_azure_hybrid_benefit ? lookup(each.value, "license_type", null) : null
+
+  tags = merge(var.tags, lookup(each.value, "tags", {}))
 
   depends_on = [azapi_resource_action.ssh_public_key_gen]
 }
+
+# Auto-shutdown schedule for cost optimization (non-prod environments)
+resource "azurerm_dev_test_global_vm_shutdown_schedule" "this" {
+  for_each = var.enable_auto_shutdown ? var.virtual_machines : {}
+
+  virtual_machine_id = azurerm_linux_virtual_machine.this[each.key].id
+  location           = var.location
+  enabled            = true
+
+  # Convert time format from "HH:mm" to "HHmm" (e.g., "18:00" -> "1800")
+  daily_recurrence_time = replace(var.auto_shutdown_time, ":", "")
+  timezone             = var.auto_shutdown_timezone
+
+  notification_settings {
+    enabled = false
+  }
+
+  tags = var.tags
+}
+

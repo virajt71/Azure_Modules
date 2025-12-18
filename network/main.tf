@@ -37,6 +37,62 @@ resource "azurerm_public_ip" "this" {
   tags                = var.tags
 }
 
+# Default NSG with security best practices
+resource "azurerm_network_security_group" "default" {
+  count = var.enable_default_nsg ? 1 : 0
+
+  name                = "${var.name}-${var.default_nsg_name}-nsg"
+  location            = var.location
+  resource_group_name = var.resource_group_name
+  tags                = var.tags
+
+  # Deny all inbound by default
+  security_rule {
+    name                       = "DenyAllInbound"
+    priority                   = 4096
+    direction                  = "Inbound"
+    access                     = "Deny"
+    protocol                   = "*"
+    source_port_range          = "*"
+    destination_port_range     = "*"
+    source_address_prefix      = "*"
+    destination_address_prefix = "*"
+    description                = "Deny all inbound traffic by default"
+  }
+
+  # Allow all outbound (can be restricted per environment)
+  security_rule {
+    name                       = "AllowAllOutbound"
+    priority                   = 100
+    direction                  = "Outbound"
+    access                     = "Allow"
+    protocol                   = "*"
+    source_port_range          = "*"
+    destination_port_range     = "*"
+    source_address_prefix      = "*"
+    destination_address_prefix = "*"
+    description                = "Allow all outbound traffic"
+  }
+
+  # Additional custom rules
+  dynamic "security_rule" {
+    for_each = var.additional_nsg_rules
+    content {
+      name                       = security_rule.value.name
+      priority                   = security_rule.value.priority
+      direction                  = security_rule.value.direction
+      access                     = security_rule.value.access
+      protocol                   = security_rule.value.protocol
+      source_port_range          = lookup(security_rule.value, "source_port_range", "*")
+      destination_port_range     = lookup(security_rule.value, "destination_port_range", "*")
+      source_address_prefix      = lookup(security_rule.value, "source_address_prefix", null)
+      destination_address_prefix = lookup(security_rule.value, "destination_address_prefix", null)
+      source_address_prefixes    = lookup(security_rule.value, "source_address_prefixes", null)
+      destination_address_prefixes = lookup(security_rule.value, "destination_address_prefixes", null)
+    }
+  }
+}
+
 resource "azurerm_network_security_group" "this" {
   for_each = var.network_security_groups
 
@@ -84,3 +140,19 @@ resource "azurerm_network_interface_security_group_association" "this" {
   network_interface_id      = azurerm_network_interface.this[each.value.nic_key].id
   network_security_group_id = azurerm_network_security_group.this[each.value.nsg_key].id
 }
+
+# Associate default NSG with all NICs if enabled and no explicit associations
+# Only associate NICs that don't have explicit NSG associations
+locals {
+  nics_with_explicit_nsg = toset([for assoc in var.nic_nsg_associations : assoc.nic_key])
+  nics_for_default_nsg   = var.enable_default_nsg ? { for k, v in var.network_interfaces : k => v if !contains(local.nics_with_explicit_nsg, k) } : {}
+}
+
+resource "azurerm_network_interface_security_group_association" "default" {
+  for_each = local.nics_for_default_nsg
+
+  network_interface_id      = azurerm_network_interface.this[each.key].id
+  network_security_group_id = azurerm_network_security_group.default[0].id
+}
+
+
