@@ -21,6 +21,8 @@ jobs:
 
       - name: Fetch Credentials from Vault
         uses: hashicorp/vault-action@v3
+        env:
+          ACTIONS_STEP_DEBUG: true   # ← Add this
         with:
           url: http://134.149.99.23:8200
           role: gh-actions-role
