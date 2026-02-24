@@ -15,22 +15,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Fetch dynamic SP credentials from Vault
-      - name: Fetch Azure Credentials from Vault
+      - name: Fetch All Azure Credentials from Vault
         uses: hashicorp/vault-action@v3
         with:
-          url: http://20.82.210.227:8200
+          url: http://<YOUR_VM_IP>:8200
           role: gh-actions-role
           method: jwt
+          exportEnv: true
           secrets: |
-            azure/creds/terraform-role client_id     | ARM_CLIENT_ID ;
-            azure/creds/terraform-role client_secret | ARM_CLIENT_SECRET
-
-      # Subscription & Tenant are static — store in GitHub Secrets
-      - name: Set Static Azure Env Vars
-        run: |
-          echo "ARM_SUBSCRIPTION_ID=${{ secrets.AZURE_SUBSCRIPTION_ID }}" >> $GITHUB_ENV
-          echo "ARM_TENANT_ID=${{ secrets.AZURE_TENANT_ID }}" >> $GITHUB_ENV
+            azure/creds/terraform-role  client_id        | ARM_CLIENT_ID ;
+            azure/creds/terraform-role  client_secret    | ARM_CLIENT_SECRET ;
+            secret/data/azure/config    subscription_id  | ARM_SUBSCRIPTION_ID ;
+            secret/data/azure/config    tenant_id        | ARM_TENANT_ID
 
       - uses: hashicorp/setup-terraform@v3
       - run: terraform init
