@@ -15,3 +15,8 @@ resource "azurerm_resource_group" "this" {
   name = "test-rg"
   location = "northeurope"
 }
+
+resource "azurerm_resource_group" "this" {
+  name = "test-rg2"
+  location = "northeurope"
+}
